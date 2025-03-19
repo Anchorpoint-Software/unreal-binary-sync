@@ -1,0 +1,21 @@
+# Anchorpoint Markup Language
+# Predefined Variables: e.g. ${path}
+# Environment Variables: e.g. ${MY_VARIABLE}
+# Full documentation: https://docs.anchorpoint.app/docs/actions/create-actions
+
+version: 1.0
+action:
+  name: Sync Binaries
+
+  version: 1
+  id: ap::unreal::sync
+  category: user
+  type: python
+  author: Anchorpoint Software GmbH
+  description: Syncs Game and Engine binaries
+
+  script: "sync_binaries.py"
+  
+  register:
+    sidebar:
+      enable: true
