@@ -10,6 +10,8 @@ ui = ap.UI()
 def sync_action(dialog):
     source_path = dialog.get_value("binary_source")
     include_editor_binaries = dialog.get_value("include_editor_binaries")
+    progress = ap.Progress("Syncing Binaries", infinite=True)
+    progress.set_cancelable(True)
     
     # Store the selected path in settings
     settings = aps.Settings()
@@ -63,10 +65,21 @@ def sync_action(dialog):
                 
                 # Unzip the file
                 with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
+                    # Get the total number of files to unzip
+                    total_files = len(zip_ref.infolist())
+                    progress.set_text("Extracting files...")
+                    
                     # Extract all files, overwriting existing ones
-                    for file_info in zip_ref.infolist():
+                    for index, file_info in enumerate(zip_ref.infolist()):
+                        # Stop process if cancel was hit by user
+                        if progress.canceled:
+                            print("Unzipping process was canceled.")
+                            progress.finish()
+                            return False
+                        
                         zip_ref.extract(file_info, project_path)
                         unzipped_files.append(file_info.filename)
+                        progress.report_progress((index + 1) / total_files)  # Report the progress
                 
                 # Write the list of unzipped files to binary_list.txt
                 binary_list_path = os.path.join(project_path, "binary_list.txt")
@@ -77,6 +90,7 @@ def sync_action(dialog):
                         f.write(f"{file}\n")
                 
                 ui.show_success("Binaries synced", f"Files extracted from {zip_file_name}")
+                progress.finish()
                 dialog.close()
                 return
                 
@@ -90,6 +104,10 @@ def sync_action(dialog):
     dialog.close()
 
 def show_dialog():
+
+    def run_sync_action_async(dialog):
+        ctx.run_async(sync_action,dialog)
+
     settings = aps.Settings()
     last_binary_source = settings.get("last_binary_source", "")
 
@@ -111,7 +129,7 @@ def show_dialog():
         var="include_editor_binaries"
     )
     
-    dialog.add_button("Sync", callback=sync_action)
+    dialog.add_button("Sync", callback=run_sync_action_async)
     dialog.show()
 
 if __name__ == "__main__":
