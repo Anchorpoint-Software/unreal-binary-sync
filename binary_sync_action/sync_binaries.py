@@ -3,6 +3,7 @@ import apsync as aps
 import os
 import subprocess
 import zipfile
+import psutil
 
 ctx = ap.get_context()
 ui = ap.UI()
@@ -244,7 +245,29 @@ def run_setup(project_path, progress):
         ui.show_error("Setup Error", str(e))
         return False
 
+def is_unreal_running(project_path):
+    unreal_exe = os.path.join(project_path, "Engine", "Binaries", "Win64", "UnrealEditor.exe")
+    
+    # Get the absolute path to handle any case differences
+    unreal_exe = os.path.abspath(unreal_exe)
+    
+    # Check all running processes
+    for proc in psutil.process_iter(['name', 'exe']):
+        try:
+            # Get process info
+            proc_info = proc.info
+            if proc_info['exe']:
+                # Compare the absolute paths
+                if os.path.abspath(proc_info['exe']) == unreal_exe:
+                    return True
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            pass
+    return False
+
 def sync_action(dialog):
+    # Set the sync button to processing state
+    dialog.set_processing("sync_button", True,"Initializing...")
+    
     source_path = dialog.get_value("binary_source")
     sync_dependencies = dialog.get_value("sync_dependencies")
     
@@ -254,14 +277,21 @@ def sync_action(dialog):
     settings.set("sync_dependencies", sync_dependencies)
     settings.store()
 
+    # Get project path before closing dialog
+    project_path = ctx.project_path
+    
+    # Check if Unreal Editor is running
+    if is_unreal_running(project_path):
+        dialog.set_processing("sync_button", False)
+        ui.show_info("Unreal Editor is running", "Please close Unreal Engine before proceeding with the binary sync.")
+        return
+
     progress = ap.Progress("Syncing Binaries", infinite=True)
     progress.set_cancelable(True)
     
     dialog.close()
     
     # Get commit IDs from the Git repository
-    project_path = ctx.project_path 
-    
     try:
         startupinfo = None
         if os.name == 'nt':  # Check if the OS is Windows
@@ -337,7 +367,7 @@ def show_dialog():
     
     dialog.add_info("Note that you have to accept a Windows Control Popup for UE Prerequisites")
     
-    dialog.add_button("Sync", callback=run_sync_action_async)
+    dialog.add_button("Sync", callback=run_sync_action_async, var="sync_button")
     dialog.show()
 
 if __name__ == "__main__":
