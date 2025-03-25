@@ -116,7 +116,6 @@ def run_setup(project_path, progress):
                 # Read output
                 output_line = process.stdout.readline()
                 if output_line:
-                    print(output_line.strip())
                     
                     # Parse progress percentage if present
                     if "Updating dependencies:" in output_line:
@@ -169,7 +168,7 @@ def run_setup(project_path, progress):
         # Step 3: Install prerequisites
         prereq_path = os.path.join(project_path, "Engine", "Extras", "Redist", "en-us", "UEPrereqSetup_x64.exe")
         if os.path.exists(prereq_path):
-            hooks_progress.set_text("Installing prerequisites...")
+            hooks_progress.set_text("Installing prerequisites. Make sure to accept the UAC prompt...")
             
             # Prepare special startupinfo to suppress UAC dialog as much as possible
             uac_startupinfo = None
