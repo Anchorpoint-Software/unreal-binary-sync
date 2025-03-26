@@ -4,6 +4,7 @@ import os
 import subprocess
 import zipfile
 import psutil
+import glob
 
 ctx = ap.get_context()
 ui = ap.UI()
@@ -263,17 +264,47 @@ def is_unreal_running(project_path):
             pass
     return False
 
-def sync_action(dialog):
+def find_uproject_files(project_path):
+    uproject_files = []
+    depth = 3
+    
+    # Get all directories at the specified depth (currently set to depth levels)
+    for root, dirs, files in os.walk(project_path, topdown=True):
+        # Skip Engine and Templates folders
+        if 'Engine' in dirs:
+            dirs.remove('Engine')
+        if 'Templates' in dirs:
+            dirs.remove('Templates')
+            
+        # Only process up to depth levels deep
+        rel_path = os.path.relpath(root, project_path)
+        if rel_path == '.' or rel_path.count(os.sep) <= depth:
+            # Look for .uproject files in current directory
+            for file in files:
+                if file.endswith('.uproject'):
+                    full_path = os.path.join(root, file)
+                    rel_path = os.path.relpath(full_path, project_path)
+                    uproject_files.append(rel_path)
+        
+        # Stop walking deeper than depth levels
+        if rel_path.count(os.sep) >= depth:
+            dirs.clear()
+    
+    return uproject_files
+
+def sync_action(dialog,launch_project_path):
     # Set the sync button to processing state
-    dialog.set_processing("sync_button", True,"Initializing...")
+    dialog.set_processing("sync_button", True, "Initializing...")
     
     source_path = dialog.get_value("binary_source")
     sync_dependencies = dialog.get_value("sync_dependencies")
+    launch_project_display_name = dialog.get_value("launch_project_display_name")
     
     # Store the settings for next time
     settings = aps.Settings()
     settings.set("last_binary_source", source_path)
     settings.set("sync_dependencies", sync_dependencies)
+    settings.set("launch_project_display_name", launch_project_display_name)
     settings.store()
 
     # Get project path before closing dialog
@@ -326,7 +357,19 @@ def sync_action(dialog):
                 if not unzip_and_manage_files(zip_file_path, project_path, progress):
                     return  # If extraction was canceled or failed
                 
-                ui.show_success("Binaries synced", f"Files extracted from {zip_file_name}")
+                # Launch the selected uproject file if one was selected
+                if launch_project_path:
+                    # Check if the path is relative (doesn't have a drive letter on Windows or doesn't start with / on Unix)
+                    if not os.path.isabs(launch_project_path):
+                        # Append the relative path to the project_path to get the absolute path
+                        launch_project_path = os.path.join(project_path, launch_project_path)
+                    
+                    if os.path.exists(launch_project_path):
+                        try:
+                            subprocess.Popen([launch_project_path], shell=True)
+                            ui.show_success("Binaries synced", f"Launching project {os.path.basename(launch_project_path)}")
+                        except Exception as e:
+                            ui.show_info("Binaries synced", f"Failed to launch project: {str(e)}")
                 return
                 
             except Exception as e:
@@ -338,12 +381,22 @@ def sync_action(dialog):
 
 def show_dialog():
 
-    def run_sync_action_async(dialog):
-        ctx.run_async(sync_action,dialog)
+    uproject_files = find_uproject_files(ctx.project_path)
+    uproject_display_names = [os.path.splitext(os.path.basename(uproject_file))[0] for uproject_file in uproject_files]
 
     settings = aps.Settings()
     last_binary_source = settings.get("last_binary_source", "")
-    sync_dependencies = settings.get("sync_dependencies", True)  # Get stored value with default=True
+    sync_dependencies = settings.get("sync_dependencies", True)
+    launch_project_display_name = settings.get("launch_project_display_name", uproject_files[0]) 
+      
+    
+    def run_sync_action_async(dialog):
+        launch_project_path = "" 
+        for uproject_file in uproject_files:
+            if dialog.get_value("launch_project_display_name") in uproject_file:
+                launch_project_path = uproject_file
+                break
+        ctx.run_async(sync_action,dialog,launch_project_path)
 
     dialog = ap.Dialog()
     dialog.title = "Sync Binaries"
@@ -361,10 +414,17 @@ def show_dialog():
     dialog.add_checkbox(
         text="Sync Setup Dependencies",
         var="sync_dependencies",
-        default=sync_dependencies  # Use stored value or default to True
+        default=sync_dependencies
     )
+    dialog.add_info("Note that you have to accept a Windows Control Popup for UE Prerequisites")    
     
-    dialog.add_info("Note that you have to accept a Windows Control Popup for UE Prerequisites")
+    if launch_project_display_name != "":
+        dialog.add_text("Launch Project").add_dropdown(
+            default=launch_project_display_name,
+            values=uproject_display_names,
+            var="launch_project_display_name"
+        )    
+        
     
     dialog.add_button("Sync", callback=run_sync_action_async, var="sync_button")
     dialog.show()
