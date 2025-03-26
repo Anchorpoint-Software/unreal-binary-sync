@@ -370,6 +370,8 @@ def sync_action(dialog,launch_project_path):
                             ui.show_success("Binaries synced", f"Launching project {os.path.basename(launch_project_path)}")
                         except Exception as e:
                             ui.show_info("Binaries synced", f"Failed to launch project: {str(e)}")
+                else:
+                    ui.show_success("Binaries synced", f"Files extracted from {zip_file_name}")
                 return
                 
             except Exception as e:
@@ -383,12 +385,15 @@ def show_dialog():
 
     uproject_files = find_uproject_files(ctx.project_path)
     uproject_display_names = [os.path.splitext(os.path.basename(uproject_file))[0] for uproject_file in uproject_files]
+    uproject_display_names.append("No Project")
+    if not uproject_files:
+        ui.show_error("Not an Unreal project", "Check your project folder")
+        return
 
     settings = aps.Settings()
     last_binary_source = settings.get("last_binary_source", "")
     sync_dependencies = settings.get("sync_dependencies", True)
-    launch_project_display_name = settings.get("launch_project_display_name", uproject_files[0]) 
-      
+    launch_project_display_name = settings.get("launch_project_display_name", uproject_files[0])       
     
     def run_sync_action_async(dialog):
         launch_project_path = "" 
@@ -424,7 +429,6 @@ def show_dialog():
             values=uproject_display_names,
             var="launch_project_display_name"
         )    
-        
     
     dialog.add_button("Sync", callback=run_sync_action_async, var="sync_button")
     dialog.show()
