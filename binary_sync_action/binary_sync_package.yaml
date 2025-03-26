@@ -19,6 +19,9 @@ action:
 
   author: "Anchorpoint Software GmbH"
 
+  icon:
+    path: :/icons/unrealEngine.svg
+
   actions:
     - ap::unreal::sync
 

@@ -15,6 +15,8 @@ action:
   description: Syncs Game and Engine binaries
 
   script: "sync_binaries.py"
+  icon:
+    path: :/icons/unrealEngine.svg
   
   register:
     sidebar:
