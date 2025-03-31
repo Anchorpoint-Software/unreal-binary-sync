@@ -219,7 +219,7 @@ def run_setup(project_path, progress):
             
             # Register the engine
             process = subprocess.Popen(
-                [version_selector_path, "/register"],
+                [version_selector_path, "/register", "/unattended"],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
