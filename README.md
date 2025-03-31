@@ -1,0 +1,1 @@
+This is a prototype for the Unreal Binary Sync action, which syncs and unpacks pre-compiled binaries according to the current commit ID for the editor and each game project in a Git repository. More information will come soon.
