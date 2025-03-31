@@ -97,7 +97,15 @@ def run_setup(project_path, progress):
             
             # Run with --force parameter to avoid prompts
             process = subprocess.Popen(
-                [git_dependencies_path, "--force"],
+                    [
+                        git_dependencies_path, 
+                        "--force",
+                        "--exclude=osx64", "--exclude=osx32", "--exclude=TVOS", "--exclude=Mac", 
+                        "--exclude=mac-arm64", "--exclude=WinRT", "--exclude=Linux", "--exclude=Linux32", 
+                        "--exclude=Linux64", "--exclude=Unix", "--exclude=OpenVR", "--exclude=GoogleOboe", 
+                        "--exclude=GooglePlay", "--exclude=GoogleGameSDK", "--exclude=Documentation", 
+                        "--exclude=Samples", "--exclude=Templates"
+                    ],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
