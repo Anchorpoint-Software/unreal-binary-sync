@@ -105,7 +105,8 @@ def run_setup(project_path, progress):
                     "--exclude=Linux64", "--exclude=Unix", "--exclude=OpenVR", "--exclude=GoogleOboe", 
                     "--exclude=GooglePlay", "--exclude=GoogleGameSDK", "--exclude=Documentation", 
                     "--exclude=Samples", "--exclude=Templates", "--exclude=Android", "--exclude=HTML5", 
-                    "--exclude=IOS", "--exclude=GoogleVR", "--exclude=GoogleTest", "--exclude=LeapMotion"
+                    "--exclude=IOS", "--exclude=GoogleVR", "--exclude=GoogleTest", "--exclude=LeapMotion",
+                    "--exclude=Dingo", "--exclude=Switch"
                 ],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
