@@ -68,7 +68,6 @@ def main():
     database.attributes.set_attribute_value(task, "Date", datetime.strptime(commit_date, "%Y-%m-%d"))
     database.attributes.set_attribute_value(task,"Commit ID", commit_id)
     #database.attributes.set_attribute_value(task,"Commit Type", commit_type)
-    sys.__stdout__.write(commit_date)
     sys.__stdout__.write("Binary added to list\n")
 
 if __name__ == "__main__":
