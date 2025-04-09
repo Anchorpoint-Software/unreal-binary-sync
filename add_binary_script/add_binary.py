@@ -5,14 +5,20 @@ import json
 import re
 import os
 
+def parse_arguments(json_str):
+    try:
+        fixed_args = re.sub(r'([{,]\s*)(\w+)(\s*:)', r'\1"\2"\3', json_str)
+        fixed_args = re.sub(r':\s*([^"\d{][^,}\s]*)([,\s}])', r': "\1"\2', fixed_args)
+        return json.loads(fixed_args)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Failed to parse JSON arguments: {str(e)}")
+    except Exception as e:
+        raise ValueError(f"Unexpected error while parsing arguments: {str(e)}")
+
 def main():
     # Get and fix the JSON string
     arguments = sys.argv[1]
-    fixed_args = re.sub(r'([{,]\s*)(\w+)(\s*:)', r'\1"\2"\3', arguments)
-    fixed_args = re.sub(r':\s*([^"\d{][^,}\s]*)([,\s}])', r': "\1"\2', fixed_args)
-    
-    # Parse the JSON
-    data = json.loads(fixed_args)
+    data = parse_arguments(arguments)
     
     # Get values with defaults
     commit_msg = data.get("commitMsg", "")
