@@ -21,16 +21,7 @@ def parse_arguments(json_str):
         # Parse the JSON
         return json.loads(fixed_args)
     except Exception as e:
-        # Fallback to manual parsing
-        result = {}
-        pairs = json_str.strip('{} ').split(',')
-        for pair in pairs:
-            if ':' in pair:
-                key, value = pair.split(':', 1)
-                key = key.strip().strip('"\'')
-                value = value.strip().strip('"\'')
-                result[key] = value
-        return result
+        raise ValueError(f"Failed to parse JSON: {e}")
 
 def main():
     # Get and fix the JSON string
