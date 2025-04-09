@@ -4,19 +4,39 @@ import sys
 import json
 import re
 import os
+from datetime import datetime
 
 def parse_arguments(json_str):
     try:
+        # Clean up the input string
+        if json_str.startswith("'") and json_str.endswith("'"):
+            json_str = json_str[1:-1]
+        json_str = json_str.strip()
+        
+        # Fix the JSON string by adding quotes around keys and values
         fixed_args = re.sub(r'([{,]\s*)(\w+)(\s*:)', r'\1"\2"\3', json_str)
         fixed_args = re.sub(r':\s*([^"\d{][^,}\s]*)([,\s}])', r': "\1"\2', fixed_args)
+        fixed_args = re.sub(r':\s*(\d{4}-\d{2}-\d{2})([,\s}])', r': "\1"\2', fixed_args)
+        
+        # Parse the JSON
         return json.loads(fixed_args)
-    except json.JSONDecodeError as e:
-        raise ValueError(f"Failed to parse JSON arguments: {str(e)}")
     except Exception as e:
-        raise ValueError(f"Unexpected error while parsing arguments: {str(e)}")
+        # Fallback to manual parsing
+        result = {}
+        pairs = json_str.strip('{} ').split(',')
+        for pair in pairs:
+            if ':' in pair:
+                key, value = pair.split(':', 1)
+                key = key.strip().strip('"\'')
+                value = value.strip().strip('"\'')
+                result[key] = value
+        return result
 
 def main():
     # Get and fix the JSON string
+    if len(sys.argv) < 2:
+        raise ValueError("No arguments provided")
+        
     arguments = sys.argv[1]
     data = parse_arguments(arguments)
     
@@ -45,10 +65,10 @@ def main():
 
     # Set task attributes
     database.attributes.set_attribute_value(task,"Author", commit_author)
-    database.attributes.set_attribute_value(task,"Date", commit_date)
+    database.attributes.set_attribute_value(task, "Date", datetime.strptime(commit_date, "%Y-%m-%d"))
     database.attributes.set_attribute_value(task,"Commit ID", commit_id)
     #database.attributes.set_attribute_value(task,"Commit Type", commit_type)
-    
+    sys.__stdout__.write(commit_date)
     sys.__stdout__.write("Binary added to list\n")
 
 if __name__ == "__main__":
