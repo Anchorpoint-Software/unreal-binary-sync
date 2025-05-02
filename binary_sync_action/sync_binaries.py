@@ -11,7 +11,7 @@ ui = ap.UI()
 
 tag_pattern = "Editor"  # This should be configurable in the UI
 max_depth = 50
-dry_run = True  # Enable dry run mode
+dry_run = False  # Enable dry run mode
 
 def unzip_and_manage_files(zip_file_path, project_path, progress):
     if dry_run:
@@ -308,6 +308,7 @@ def is_unreal_running(project_path):
     return False
 
 def find_uproject_files(project_path):
+    
     uproject_files = []
     depth = 3
     
@@ -335,7 +336,95 @@ def find_uproject_files(project_path):
     
     return uproject_files
 
-def sync_action(dialog,launch_project_path):
+def get_commit_history(project_path):
+    commit_history = []
+    try:
+        startupinfo = None
+        if os.name == 'nt':  # Check if the OS is Windows
+            startupinfo = subprocess.STARTUPINFO()
+            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+
+        # Get current commit ID
+        current_commit = subprocess.check_output(
+            ['git', 'rev-parse', 'HEAD'],
+            cwd=project_path,
+            text=True,
+            startupinfo=startupinfo
+        ).strip()
+
+        if dry_run:
+            print(f"\n=== DRY RUN MODE ===")
+            print(f"Current commit: {current_commit}")
+            print(f"Searching for tag pattern: '{tag_pattern}'")
+            print(f"Maximum depth: {max_depth} commits")
+
+        # Get commit history with tags
+        commit_history = subprocess.check_output(
+            ['git', 'log', '--pretty=format:%H %d', f'-{max_depth}'],
+            cwd=project_path,
+            text=True,
+            startupinfo=startupinfo
+        ).splitlines()
+
+        if dry_run:
+            print(f"Found {len(commit_history)} commits to check\n")
+            
+    except subprocess.CalledProcessError as e:
+        ui.show_error("Git Error", f"Failed to retrieve commit information: {str(e)}")
+        return None
+    return commit_history
+
+def get_matching_commit_id(commit_history):
+    if not commit_history:
+        if dry_run:
+            print("\nNo commits found in history")
+        ui.show_error("No commits found", "Failed to retrieve commit history")
+        return None
+
+    # Process commits starting from current
+    for commit_line in commit_history:
+        parts = commit_line.split()
+        commit_id = parts[0]
+        tags = [tag.strip('()') for tag in parts[1:]] if len(parts) > 1 else []
+        
+        if dry_run:
+            print(f"\nChecking commit: {commit_id}")
+            if tags:
+                print(f"Tags: {', '.join(tags)}")
+            else:
+                print("No tags found")
+        
+        # Check if any tag matches our pattern
+        matching_tag = next((tag for tag in tags if tag_pattern in tag), None)
+        
+        if matching_tag:
+            if dry_run:
+                print(f"Found matching tag: {matching_tag}")
+            return commit_id
+    
+    # If no matching tag was found
+    if dry_run:
+        print("\nNo matching binaries found in the search")
+    ui.show_error("No compatible tag found", f"No tag found for commits with tag pattern '{tag_pattern}'")
+    return None
+
+def launch_editor(project_path,launch_project_path):
+    if not os.path.isabs(launch_project_path):
+        # Append the relative path to the project_path to get the absolute path
+        launch_project_path = os.path.join(project_path, launch_project_path)
+
+    if dry_run:
+        print(f"Launch project path {launch_project_path}")
+    
+    if os.path.exists(launch_project_path):
+        try:
+            # Use shell=False with a list argument
+            subprocess.Popen([launch_project_path], shell=True)
+            ui.show_success("Binaries synced", f"Launching project {os.path.basename(launch_project_path)}")
+        except Exception as e:
+            ui.show_info("Binaries synced", f"Failed to launch project: {str(e)}")
+    
+def run_sync_processes(dialog,launch_project_path):
     # Set the sync button to processing state
     dialog.set_processing("sync_button", True, "Initializing...")
     
@@ -364,118 +453,55 @@ def sync_action(dialog,launch_project_path):
     
     dialog.close()
     
-    try:
-        startupinfo = None
-        if os.name == 'nt':  # Check if the OS is Windows
-            startupinfo = subprocess.STARTUPINFO()
-            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-
-        # Get current commit ID
-        current_commit = subprocess.check_output(
-            ['git', 'rev-parse', 'HEAD'],
-            cwd=project_path,
-            text=True,
-            startupinfo=startupinfo
-        ).strip()
-
-        if dry_run:
-            print(f"\n=== DRY RUN MODE ===")
-            print(f"Current commit: {current_commit}")
-            print(f"Searching for tag pattern: '{tag_pattern}'")
-            print(f"Maximum depth: {max_depth} commits")
-            print(f"Binary source path: {source_path}\n")
-
-        # Get commit history with tags
-        commit_history = subprocess.check_output(
-            ['git', 'log', '--pretty=format:%H %d', f'-{max_depth}'],
-            cwd=project_path,
-            text=True,
-            startupinfo=startupinfo
-        ).splitlines()
-
-        if dry_run:
-            print(f"Found {len(commit_history)} commits to check\n")
-
-        # Process commits starting from current
-        for commit_line in commit_history:
-            parts = commit_line.split()
-            commit_id = parts[0]
-            tags = [tag.strip('()') for tag in parts[1:]] if len(parts) > 1 else []
-            
-            if dry_run:
-                print(f"\nChecking commit: {commit_id}")
-                if tags:
-                    print(f"Tags: {', '.join(tags)}")
-                else:
-                    print("No tags found")
-            
-            # Check if any tag matches our pattern
-            matching_tag = next((tag for tag in tags if tag_pattern in tag), None)
-            
-            if matching_tag:
-                if dry_run:
-                    print(f"Found matching tag: {matching_tag}")
-                
-                # Found a matching tag, check for zip file
-                zip_file_name = f"{commit_id}.zip"
-                zip_file_path = os.path.join(source_path, zip_file_name)
-                
-                if os.path.exists(zip_file_path):
-                    if dry_run:
-                        print(f"Found matching zip file: {zip_file_path}")
-                        print("\nWould perform the following actions:")
-                        print(f"1. {'Run setup script' if sync_dependencies else 'Skip setup script'}")
-                        print(f"2. Extract binaries from {zip_file_name}")
-                        if launch_project_path:
-                            print(f"3. Launch project: {launch_project_path}")
-                        print("\n=== DRY RUN COMPLETE ===")
-                        progress.finish()
-                        return
-                    else:
-                        # Run the setup script if enabled
-                        if sync_dependencies:
-                            if not run_setup(project_path, progress):
-                                return
-                        
-                        try:
-                            if not unzip_and_manage_files(zip_file_path, project_path, progress):
-                                return  # If extraction was canceled or failed
-                            
-                            # Launch the selected uproject file if one was selected
-                            if launch_project_path:
-                                # Check if the path is relative (doesn't have a drive letter on Windows or doesn't start with / on Unix)
-                                if not os.path.isabs(launch_project_path):
-                                    # Append the relative path to the project_path to get the absolute path
-                                    launch_project_path = os.path.join(project_path, launch_project_path)
-                                
-                                if os.path.exists(launch_project_path):
-                                    try:
-                                        subprocess.Popen([launch_project_path], shell=True)
-                                        ui.show_success("Binaries synced", f"Launching project {os.path.basename(launch_project_path)}")
-                                    except Exception as e:
-                                        ui.show_info("Binaries synced", f"Failed to launch project: {str(e)}")
-                            else:
-                                ui.show_success("Binaries synced", f"Files extracted from {zip_file_name} (Tag: {matching_tag})")
-                            return
-                            
-                        except Exception as e:
-                            ui.show_error("Extraction failed", str(e))
-                            return
-                elif dry_run:
-                    print(f"Zip file not found: {zip_file_path}")
-    
-    except subprocess.CalledProcessError as e:
-        ui.show_error("Git Error", f"Failed to retrieve commit information: {str(e)}")
+    commit_history = get_commit_history(project_path)
+    if commit_history is None:
         return
-    except Exception as e:
-        ui.show_error("Error", str(e))
+        
+    matching_commit_id = get_matching_commit_id(commit_history)
+    if matching_commit_id is None:
         return
+        
+    # Found a matching tag, check for zip file
+    zip_file_name = f"{matching_commit_id}.zip"
+    zip_file_path = os.path.join(source_path, zip_file_name)
     
-    # If no matching zip file is found
-    if dry_run:
-        print("\nNo matching binaries found in the search")
-    ui.show_error("No compatible binaries found", f"No binaries found for commits with tag pattern '{tag_pattern}'")
-
+    if os.path.exists(zip_file_path):
+        if dry_run:
+            print(f"Found matching zip file: {zip_file_path}")
+            print("\nWould perform the following actions:")
+            print(f"1. {'Run setup script' if sync_dependencies else 'Skip setup script'}")
+            print(f"2. Extract binaries from {zip_file_name}")
+            if launch_project_path:
+                print(f"3. Launch project: {launch_project_path}")
+            print("\n=== DRY RUN COMPLETE ===")
+            progress.finish()
+            return
+        
+        # Run the setup script if enabled
+        if sync_dependencies:
+            if not run_setup(project_path, progress):
+                return
+        
+        try:
+            if not unzip_and_manage_files(zip_file_path, project_path, progress):
+                return  # If extraction was canceled or failed
+            
+            # Launch the selected uproject file if one was selected
+            if launch_project_path:
+                launch_editor(project_path,launch_project_path)
+            else:
+                ui.show_success("Binaries synced", f"Files extracted from {zip_file_name}")
+            return
+            
+        except Exception as e:
+            ui.show_error("Extraction failed", str(e))
+            return
+        
+    elif dry_run:
+        print(f"Zip file not found: {zip_file_path}")
+    else:
+        ui.show_error("No compatible Zip file", f"No binaries found for commits with tag pattern '{tag_pattern}'")
+    
 def show_dialog():
 
     uproject_files = find_uproject_files(ctx.project_path)
@@ -496,7 +522,7 @@ def show_dialog():
             if dialog.get_value("launch_project_display_name") in uproject_file:
                 launch_project_path = uproject_file
                 break
-        ctx.run_async(sync_action,dialog,launch_project_path)
+        ctx.run_async(run_sync_processes,dialog,launch_project_path)
 
     dialog = ap.Dialog()
     dialog.title = "Sync Binaries"
