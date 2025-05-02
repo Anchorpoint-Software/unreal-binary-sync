@@ -5,14 +5,14 @@
 
 version: 1.0
 action:
-  name: Sync Binaries
+  name: Sync Editor
 
   version: 1
   id: ap::unreal::sync
   category: user
   type: python
   author: Anchorpoint Software GmbH
-  description: Syncs Game and Engine binaries
+  description: Syncs Game and Editor binaries
 
   script: "sync_binaries.py"
   icon:

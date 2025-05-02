@@ -14,6 +14,17 @@ max_depth = 50
 dry_run = True  # Enable dry run mode
 
 def unzip_and_manage_files(zip_file_path, project_path, progress):
+    if dry_run:
+        print("\n=== UNZIP AND MANAGE FILES (DRY RUN) ===")
+        print(f"Would extract from: {zip_file_path}")
+        print(f"To project path: {project_path}")
+        print("Would perform the following steps:")
+        print("1. Delete existing files from previous sync")
+        print("2. Extract all files from zip")
+        print("3. Create/update extracted_binaries.txt")
+        print("=== END UNZIP DRY RUN ===\n")
+        return True
+
     # Delete existing files from previous sync if extracted_binaries.txt exists
     binary_list_path = os.path.join(project_path, "extracted_binaries.txt")
     if os.path.exists(binary_list_path):
@@ -64,6 +75,18 @@ def unzip_and_manage_files(zip_file_path, project_path, progress):
     return True  # Indicate success
 
 def run_setup(project_path, progress):
+    if dry_run:
+        print("\n=== RUN SETUP (DRY RUN) ===")
+        print(f"Would run setup in project path: {project_path}")
+        print("Would perform the following steps:")
+        print("1. Check for admin rights")
+        print("2. Run GitDependencies.exe")
+        print("3. Setup git hooks")
+        print("4. Install prerequisites")
+        print("5. Register engine installation")
+        print("=== END SETUP DRY RUN ===\n")
+        return True
+
     import ctypes
     import sys
     
@@ -260,6 +283,12 @@ def run_setup(project_path, progress):
         return False
 
 def is_unreal_running(project_path):
+    if dry_run:
+        print("\n=== CHECK UNREAL RUNNING (DRY RUN) ===")
+        print(f"Would check if Unreal Editor is running in: {project_path}")
+        print("=== END CHECK UNREAL DRY RUN ===\n")
+        return False
+
     unreal_exe = os.path.join(project_path, "Engine", "Binaries", "Win64", "UnrealEditor.exe")
     
     # Get the absolute path to handle any case differences
