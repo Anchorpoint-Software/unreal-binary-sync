@@ -10,8 +10,7 @@ ctx = ap.get_context()
 ui = ap.UI()
 
 tag_pattern = "Editor"  # This should be configurable in the UI
-max_depth = 50
-dry_run = True  # Enable dry run mode
+max_depth = 200
 
 def unzip_and_manage_files(zip_file_path, project_path, progress):
     if dry_run:
@@ -417,9 +416,9 @@ def launch_editor(project_path,launch_project_path):
         except Exception as e:
             ui.show_info("Binaries synced", f"Failed to launch project: {str(e)}")
     
-def run_sync_processes(sync_dependencies,source_path,launch_project_path,):
+def run_sync_processes(sync_dependencies,source_path,launch_project_path):
 
-    
+    # Start the progress 
     progress = ap.Progress("Syncing Editor","Initializing...", infinite=True)
     progress.set_cancelable(True)
 
@@ -480,22 +479,33 @@ def run_sync_processes(sync_dependencies,source_path,launch_project_path,):
         ui.show_error("No compatible Zip file", f"No binaries found for commits with tag pattern '{tag_pattern}'")
     
 def initialize():
+    global dry_run
     
     project_path = ctx.project_path
+    uproject_files = find_uproject_files(project_path)      
 
-    uproject_files = find_uproject_files(project_path)
+    # Get the project settings
+    settings = aps.Settings()  
+    sync_dependencies = settings.get(project_path+"_sync_dependencies", True)   
+    dry_run = settings.get(project_path+"_dry_run", False)    
+    binary_source = settings.get(project_path+"_binary_source", "")
+
+    if dry_run:
+        ui.show_console()
+
+    # Terminate if it's not an Unreal Project
     if not uproject_files:
+        if dry_run:
+            print("Could not find any .uproject file")
         ui.show_error("Not an Unreal project", "Check your project folder")
         return
+    
+    launch_project_display_name = settings.get(project_path+"_launch_project_display_name", uproject_files[0])    
 
-    settings = aps.Settings()
-    binary_source = settings.get(project_path+"_binary_source", "")
+    # Terminate when there is no source for the zip file defined in the project settings
     if not binary_source:
         ui.show_error("No ZIP Location defined", "Please set up a location in the project settings")
         return
-
-    sync_dependencies = settings.get(project_path+"_sync_dependencies", True)
-    launch_project_display_name = settings.get(project_path+"_launch_project_display_name", uproject_files[0])       
     
     launch_project_path = "" 
     for uproject_file in uproject_files:

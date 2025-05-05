@@ -24,8 +24,11 @@ class UnrealProjectSettings(ap.AnchorpointSettings):
         binary_source = settings.get(project_path+"_binary_source", "")
         sync_dependencies = settings.get(project_path+"_sync_dependencies", True)
         launch_project_display_name = settings.get(project_path+"_launch_project_display_name", no_project_label) 
+        dry_run = settings.get(project_path+"_dry_run", False)
 
         self.dialog = ap.Dialog()
+
+        self.dialog.add_text("<b>Local</b>")
 
         self.dialog.add_text("ZIP Location").add_input(
             placeholder="Select folder containing binaries...",
@@ -50,6 +53,17 @@ class UnrealProjectSettings(ap.AnchorpointSettings):
             var="launch_project_display_name",
             callback = self.store_local_settings
         )  
+        self.dialog.add_info("Launch the Unreal Editor when the sync is complete")  
+
+        self.dialog.add_checkbox(text="Debug Mode",var="dry_run",default=dry_run,callback = self.store_local_settings)
+        self.dialog.add_info("Runs in dry run mode by only displaying prints instead of executing the real synchronisation")  
+
+        self.dialog.add_empty()
+
+        self.dialog.add_text("<b>Shared</b>")
+
+
+
 
     def get_dialog(self):
         return self.dialog
@@ -90,13 +104,15 @@ class UnrealProjectSettings(ap.AnchorpointSettings):
 
         source_path = dialog.get_value("binary_source")
         sync_dependencies = dialog.get_value("sync_dependencies")
-        launch_project_display_name = dialog.get_value("launch_project_display_name")    
+        launch_project_display_name = dialog.get_value("launch_project_display_name")  
+        dry_run = dialog.get_value("dry_run")  
         
         # Store the settings for next time
         settings = aps.Settings()
         settings.set(project_path+"_binary_source", source_path)
         settings.set(project_path+"_sync_dependencies", sync_dependencies)
         settings.set(project_path+"_launch_project_display_name", launch_project_display_name)
+        settings.set(project_path+"_dry_run", dry_run)
         settings.store()
         return
 
