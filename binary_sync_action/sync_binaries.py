@@ -11,18 +11,16 @@ ui = ap.UI()
 
 tag_pattern = "Editor"  # This should be configurable in the UI
 max_depth = 50
-dry_run = False  # Enable dry run mode
+dry_run = True  # Enable dry run mode
 
 def unzip_and_manage_files(zip_file_path, project_path, progress):
     if dry_run:
-        print("\n=== UNZIP AND MANAGE FILES (DRY RUN) ===")
         print(f"Would extract from: {zip_file_path}")
         print(f"To project path: {project_path}")
         print("Would perform the following steps:")
         print("1. Delete existing files from previous sync")
         print("2. Extract all files from zip")
         print("3. Create/update extracted_binaries.txt")
-        print("=== END UNZIP DRY RUN ===\n")
         return True
 
     # Delete existing files from previous sync if extracted_binaries.txt exists
@@ -76,7 +74,6 @@ def unzip_and_manage_files(zip_file_path, project_path, progress):
 
 def run_setup(project_path, progress):
     if dry_run:
-        print("\n=== RUN SETUP (DRY RUN) ===")
         print(f"Would run setup in project path: {project_path}")
         print("Would perform the following steps:")
         print("1. Check for admin rights")
@@ -84,7 +81,6 @@ def run_setup(project_path, progress):
         print("3. Setup git hooks")
         print("4. Install prerequisites")
         print("5. Register engine installation")
-        print("=== END SETUP DRY RUN ===\n")
         return True
 
     import ctypes
@@ -284,9 +280,7 @@ def run_setup(project_path, progress):
 
 def is_unreal_running(project_path):
     if dry_run:
-        print("\n=== CHECK UNREAL RUNNING (DRY RUN) ===")
         print(f"Would check if Unreal Editor is running in: {project_path}")
-        print("=== END CHECK UNREAL DRY RUN ===\n")
         return False
 
     unreal_exe = os.path.join(project_path, "Engine", "Binaries", "Win64", "UnrealEditor.exe")
@@ -353,7 +347,6 @@ def get_commit_history(project_path):
         ).strip()
 
         if dry_run:
-            print(f"\n=== DRY RUN MODE ===")
             print(f"Current commit: {current_commit}")
             print(f"Searching for tag pattern: '{tag_pattern}'")
             print(f"Maximum depth: {max_depth} commits")
@@ -424,41 +417,28 @@ def launch_editor(project_path,launch_project_path):
         except Exception as e:
             ui.show_info("Binaries synced", f"Failed to launch project: {str(e)}")
     
-def run_sync_processes(dialog,launch_project_path):
-    # Set the sync button to processing state
-    dialog.set_processing("sync_button", True, "Initializing...")
+def run_sync_processes(sync_dependencies,source_path,launch_project_path,):
+
     
-    source_path = dialog.get_value("binary_source")
-    sync_dependencies = dialog.get_value("sync_dependencies")
-    launch_project_display_name = dialog.get_value("launch_project_display_name")
-    
-    # Store the settings for next time
-    settings = aps.Settings()
-    settings.set("last_binary_source", source_path)
-    settings.set("sync_dependencies", sync_dependencies)
-    settings.set("launch_project_display_name", launch_project_display_name)
-    settings.store()
+    progress = ap.Progress("Syncing Editor","Initializing...", infinite=True)
+    progress.set_cancelable(True)
 
     # Get project path before closing dialog
     project_path = ctx.project_path
     
     # Check if Unreal Editor is running
     if is_unreal_running(project_path):
-        dialog.set_processing("sync_button", False)
         ui.show_info("Unreal Editor is running", "Please close Unreal Engine before proceeding with the binary sync.")
         return
-
-    progress = ap.Progress("Syncing Binaries", infinite=True)
-    progress.set_cancelable(True)
-    
-    dialog.close()
     
     commit_history = get_commit_history(project_path)
     if commit_history is None:
+        ui.show_error("No Commits detected")
         return
         
     matching_commit_id = get_matching_commit_id(commit_history)
     if matching_commit_id is None:
+        ui.show_error("No Matching Commits detected","It seems that there is no binary attached to any commit")
         return
         
     # Found a matching tag, check for zip file
@@ -473,7 +453,6 @@ def run_sync_processes(dialog,launch_project_path):
             print(f"2. Extract binaries from {zip_file_name}")
             if launch_project_path:
                 print(f"3. Launch project: {launch_project_path}")
-            print("\n=== DRY RUN COMPLETE ===")
             progress.finish()
             return
         
@@ -502,57 +481,29 @@ def run_sync_processes(dialog,launch_project_path):
     else:
         ui.show_error("No compatible Zip file", f"No binaries found for commits with tag pattern '{tag_pattern}'")
     
-def show_dialog():
+def initialize():
 
     uproject_files = find_uproject_files(ctx.project_path)
-    uproject_display_names = [os.path.splitext(os.path.basename(uproject_file))[0] for uproject_file in uproject_files]
-    uproject_display_names.append("No Project")
     if not uproject_files:
         ui.show_error("Not an Unreal project", "Check your project folder")
         return
 
     settings = aps.Settings()
-    last_binary_source = settings.get("last_binary_source", "")
+    binary_source = settings.get("binary_source", "")
+    if not binary_source:
+        ui.show_error("No ZIP Location defined", "Please set up a location in the project settings")
+        return
+
     sync_dependencies = settings.get("sync_dependencies", True)
     launch_project_display_name = settings.get("launch_project_display_name", uproject_files[0])       
     
-    def run_sync_action_async(dialog):
-        launch_project_path = "" 
-        for uproject_file in uproject_files:
-            if dialog.get_value("launch_project_display_name") in uproject_file:
-                launch_project_path = uproject_file
-                break
-        ctx.run_async(run_sync_processes,dialog,launch_project_path)
+    launch_project_path = "" 
+    for uproject_file in uproject_files:
+        if launch_project_display_name in uproject_file:
+            launch_project_path = uproject_file
+            break
 
-    dialog = ap.Dialog()
-    dialog.title = "Sync Binaries"
-    
-    if ctx.icon:
-        dialog.icon = ctx.icon
-    
-    dialog.add_text("Binary source").add_input(
-        placeholder="Select folder containing binaries...",
-        browse=ap.BrowseType.Folder,
-        var="binary_source",
-        default=last_binary_source
-    )
-    
-    dialog.add_checkbox(
-        text="Sync Setup Dependencies",
-        var="sync_dependencies",
-        default=sync_dependencies
-    )
-    dialog.add_info("Note that you have to accept a Windows Control Popup for UE Prerequisites")    
-    
-    if launch_project_display_name != "":
-        dialog.add_text("Launch Project").add_dropdown(
-            default=launch_project_display_name,
-            values=uproject_display_names,
-            var="launch_project_display_name"
-        )    
-    
-    dialog.add_button("Sync", callback=run_sync_action_async, var="sync_button")
-    dialog.show()
+    ctx.run_async(run_sync_processes,sync_dependencies,binary_source,launch_project_path)   
 
 if __name__ == "__main__":
-    show_dialog()
+    initialize()

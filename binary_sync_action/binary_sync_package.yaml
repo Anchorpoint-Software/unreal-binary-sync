@@ -12,7 +12,7 @@ action:
   #Optional Properties
   version: 1
   id: "ap::package::unreal"
-  category: "zip"
+  category: unreal
   type: package
   enable: true
   description: Sync Engine and Game Binaries from an external source to your project
@@ -24,6 +24,7 @@ action:
 
   actions:
     - ap::unreal::sync
+    - ap::unreal::settings
 
 
     
