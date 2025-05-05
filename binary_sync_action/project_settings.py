@@ -13,6 +13,7 @@ class UnrealProjectSettings(ap.AnchorpointSettings):
 
         no_project_label = "No Project"
 
+        # Check if it's an Unreal project based on located .uproject files
         uproject_files = self.find_uproject_files(ctx.project_path)
         uproject_display_names = [os.path.splitext(os.path.basename(uproject_file))[0] for uproject_file in uproject_files]
         uproject_display_names.append(no_project_label)
@@ -23,6 +24,7 @@ class UnrealProjectSettings(ap.AnchorpointSettings):
         workspace_id = ctx.workspace_id
         access_level = aps.get_workspace_access(workspace_id)
 
+        # Get local and shared settings
         local_settings = aps.Settings()
         binary_source = local_settings.get(project_path+"_binary_source", "")
         sync_dependencies = local_settings.get(project_path+"_sync_dependencies", True)
@@ -32,9 +34,9 @@ class UnrealProjectSettings(ap.AnchorpointSettings):
         shared_settings = aps.SharedSettings(project_id,workspace_id,"unreal")
         tag_pattern = shared_settings.get("_tag_pattern", "")
 
-
         self.dialog = ap.Dialog()
 
+        # Display local settings for all users
         self.dialog.add_text("<b>Local Settings</b>")
 
         self.dialog.add_text("ZIP Location",width = 100).add_input(
@@ -65,11 +67,10 @@ class UnrealProjectSettings(ap.AnchorpointSettings):
         self.dialog.add_checkbox(text="Debug Mode",var="dry_run",default=dry_run,callback = self.store_local_settings)
         self.dialog.add_info("Runs in dry run mode by only displaying prints instead of executing the real<br>synchronisation")  
 
-        self.dialog.add_empty()
-
-        self.dialog.add_text("<b>Shared Settings</b>")
-
+        # Display shared settings only when you are an admin
         if (access_level is not aps.AccessLevel.Member):
+            self.dialog.add_empty()
+            self.dialog.add_text("<b>Shared Settings</b>")
             self.dialog.add_text("Tag Pattern",width = 100).add_input(
                 placeholder="Editor",
                 var="tag_pattern",
@@ -77,9 +78,7 @@ class UnrealProjectSettings(ap.AnchorpointSettings):
                 width = 344,
                 callback = self.store_shared_settings
             )
-            self.dialog.add_info("Specify a pattern for Git tags that tells Anchorpoint that there is a binary<br>attached to a commit")  
-
-
+            self.dialog.add_info("Specify a pattern for Git tags that tells Anchorpoint that there is a binary<br>attached to a commit") 
 
 
     def get_dialog(self):
@@ -88,7 +87,7 @@ class UnrealProjectSettings(ap.AnchorpointSettings):
     def find_uproject_files(self,project_path):
     
         uproject_files = []
-        depth = 3
+        depth = 3 # only dive in 3 subfolder levels
         
         # Get all directories at the specified depth (currently set to depth levels)
         for root, dirs, files in os.walk(project_path, topdown=True):
