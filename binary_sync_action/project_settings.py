@@ -19,22 +19,30 @@ class UnrealProjectSettings(ap.AnchorpointSettings):
 
         self.ctx = ctx        
         project_path = ctx.project_path
+        project_id = ctx.project_id
+        workspace_id = ctx.workspace_id
+        access_level = aps.get_workspace_access(workspace_id)
 
-        settings = aps.Settings()
-        binary_source = settings.get(project_path+"_binary_source", "")
-        sync_dependencies = settings.get(project_path+"_sync_dependencies", True)
-        launch_project_display_name = settings.get(project_path+"_launch_project_display_name", no_project_label) 
-        dry_run = settings.get(project_path+"_dry_run", False)
+        local_settings = aps.Settings()
+        binary_source = local_settings.get(project_path+"_binary_source", "")
+        sync_dependencies = local_settings.get(project_path+"_sync_dependencies", True)
+        launch_project_display_name = local_settings.get(project_path+"_launch_project_display_name", no_project_label) 
+        dry_run = local_settings.get(project_path+"_dry_run", False)
+        
+        shared_settings = aps.SharedSettings(project_id,workspace_id,"unreal")
+        tag_pattern = shared_settings.get("_tag_pattern", "")
+
 
         self.dialog = ap.Dialog()
 
-        self.dialog.add_text("<b>Local</b>")
+        self.dialog.add_text("<b>Local Settings</b>")
 
-        self.dialog.add_text("ZIP Location").add_input(
+        self.dialog.add_text("ZIP Location",width = 100).add_input(
             placeholder="Select folder containing binaries...",
             browse=ap.BrowseType.Folder,
             var="binary_source",
             default=binary_source,
+            width = 246,
             callback = self.store_local_settings
         )
         
@@ -45,9 +53,8 @@ class UnrealProjectSettings(ap.AnchorpointSettings):
             callback = self.store_local_settings
         )
         self.dialog.add_info("Note that you have to accept a Windows Control Popup for UE Prerequisites")  
-
-        if launch_project_display_name != "":
-            self.dialog.add_text("Launch Project").add_dropdown(
+        
+        self.dialog.add_text("Launch Project",width = 100).add_dropdown(
             default=launch_project_display_name,
             values=uproject_display_names,
             var="launch_project_display_name",
@@ -56,11 +63,21 @@ class UnrealProjectSettings(ap.AnchorpointSettings):
         self.dialog.add_info("Launch the Unreal Editor when the sync is complete")  
 
         self.dialog.add_checkbox(text="Debug Mode",var="dry_run",default=dry_run,callback = self.store_local_settings)
-        self.dialog.add_info("Runs in dry run mode by only displaying prints instead of executing the real synchronisation")  
+        self.dialog.add_info("Runs in dry run mode by only displaying prints instead of executing the real<br>synchronisation")  
 
         self.dialog.add_empty()
 
-        self.dialog.add_text("<b>Shared</b>")
+        self.dialog.add_text("<b>Shared Settings</b>")
+
+        if (access_level is not aps.AccessLevel.Member):
+            self.dialog.add_text("Tag Pattern",width = 100).add_input(
+                placeholder="Editor",
+                var="tag_pattern",
+                default=tag_pattern,
+                width = 344,
+                callback = self.store_shared_settings
+            )
+            self.dialog.add_info("Specify a pattern for Git tags that tells Anchorpoint that there is a binary<br>attached to a commit")  
 
 
 
@@ -97,6 +114,18 @@ class UnrealProjectSettings(ap.AnchorpointSettings):
         
         return uproject_files
 
+    def store_shared_settings(self,dialog,value):
+
+        ctx = ap.get_context()
+        project_id = ctx.project_id
+        workspace_id = ctx.workspace_id
+
+        tag_pattern = dialog.get_value("tag_pattern")
+        shared_settings = aps.SharedSettings(project_id,workspace_id,"unreal")
+        shared_settings.set("_tag_pattern", tag_pattern)
+        shared_settings.store()        
+        return
+    
     def store_local_settings(self,dialog,value):
 
         ctx = ap.get_context()
@@ -108,12 +137,12 @@ class UnrealProjectSettings(ap.AnchorpointSettings):
         dry_run = dialog.get_value("dry_run")  
         
         # Store the settings for next time
-        settings = aps.Settings()
-        settings.set(project_path+"_binary_source", source_path)
-        settings.set(project_path+"_sync_dependencies", sync_dependencies)
-        settings.set(project_path+"_launch_project_display_name", launch_project_display_name)
-        settings.set(project_path+"_dry_run", dry_run)
-        settings.store()
+        local_settings = aps.Settings()
+        local_settings.set(project_path+"_binary_source", source_path)
+        local_settings.set(project_path+"_sync_dependencies", sync_dependencies)
+        local_settings.set(project_path+"_launch_project_display_name", launch_project_display_name)
+        local_settings.set(project_path+"_dry_run", dry_run)
+        local_settings.store()
         return
 
 def on_show_project_preferences(settings_list, ctx: ap.Context):

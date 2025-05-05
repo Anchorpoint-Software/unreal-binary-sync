@@ -366,7 +366,7 @@ def get_commit_history(project_path):
         return None
     return commit_history
 
-def get_matching_commit_id(commit_history):
+def get_matching_commit_id(commit_history,tag_pattern):
     if not commit_history:
         if dry_run:
             print("\nNo commits found in history")
@@ -416,7 +416,7 @@ def launch_editor(project_path,launch_project_path):
         except Exception as e:
             ui.show_info("Binaries synced", f"Failed to launch project: {str(e)}")
     
-def run_sync_processes(sync_dependencies,source_path,launch_project_path):
+def run_sync_processes(sync_dependencies,source_path,launch_project_path,tag_pattern):
 
     # Start the progress 
     progress = ap.Progress("Syncing Editor","Initializing...", infinite=True)
@@ -434,7 +434,7 @@ def run_sync_processes(sync_dependencies,source_path,launch_project_path):
     if commit_history is None:
         return
         
-    matching_commit_id = get_matching_commit_id(commit_history)
+    matching_commit_id = get_matching_commit_id(commit_history,tag_pattern)
     if matching_commit_id is None:
         return
         
@@ -482,16 +482,27 @@ def initialize():
     global dry_run
     
     project_path = ctx.project_path
+    project_id = ctx.project_id
+    workspace_id = ctx.workspace_id
     uproject_files = find_uproject_files(project_path)      
 
     # Get the project settings
-    settings = aps.Settings()  
-    sync_dependencies = settings.get(project_path+"_sync_dependencies", True)   
-    dry_run = settings.get(project_path+"_dry_run", False)    
-    binary_source = settings.get(project_path+"_binary_source", "")
+    local_settings = aps.Settings()  
+    sync_dependencies = local_settings.get(project_path+"_sync_dependencies", True)   
+    dry_run = local_settings.get(project_path+"_dry_run", False)    
+    binary_source = local_settings.get(project_path+"_binary_source", "")
+
+    shared_settings = aps.SharedSettings(project_id,workspace_id,"unreal")
+    tag_pattern = shared_settings.get("_tag_pattern", "") 
 
     if dry_run:
         ui.show_console()
+
+    if not tag_pattern:
+        if dry_run:
+            print("Tag pattern is empty. Use something like <<Editor>> for all Git tags named <<Editor-1>>, <<Editor-2>>, etc.")
+        ui.show_error("No tag has been set", "Please define a tag pattern in the project settings")
+        return
 
     # Terminate if it's not an Unreal Project
     if not uproject_files:
@@ -500,7 +511,7 @@ def initialize():
         ui.show_error("Not an Unreal project", "Check your project folder")
         return
     
-    launch_project_display_name = settings.get(project_path+"_launch_project_display_name", uproject_files[0])    
+    launch_project_display_name = local_settings.get(project_path+"_launch_project_display_name", uproject_files[0])    
 
     # Terminate when there is no source for the zip file defined in the project settings
     if not binary_source:
@@ -513,7 +524,7 @@ def initialize():
             launch_project_path = uproject_file
             break
 
-    ctx.run_async(run_sync_processes,sync_dependencies,binary_source,launch_project_path)   
+    ctx.run_async(run_sync_processes,sync_dependencies,binary_source,launch_project_path,tag_pattern)   
 
 if __name__ == "__main__":
     initialize()
