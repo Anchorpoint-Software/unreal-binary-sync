@@ -433,12 +433,10 @@ def run_sync_processes(sync_dependencies,source_path,launch_project_path,):
     
     commit_history = get_commit_history(project_path)
     if commit_history is None:
-        ui.show_error("No Commits detected")
         return
         
     matching_commit_id = get_matching_commit_id(commit_history)
     if matching_commit_id is None:
-        ui.show_error("No Matching Commits detected","It seems that there is no binary attached to any commit")
         return
         
     # Found a matching tag, check for zip file
@@ -482,20 +480,22 @@ def run_sync_processes(sync_dependencies,source_path,launch_project_path,):
         ui.show_error("No compatible Zip file", f"No binaries found for commits with tag pattern '{tag_pattern}'")
     
 def initialize():
+    
+    project_path = ctx.project_path
 
-    uproject_files = find_uproject_files(ctx.project_path)
+    uproject_files = find_uproject_files(project_path)
     if not uproject_files:
         ui.show_error("Not an Unreal project", "Check your project folder")
         return
 
     settings = aps.Settings()
-    binary_source = settings.get("binary_source", "")
+    binary_source = settings.get(project_path+"_binary_source", "")
     if not binary_source:
         ui.show_error("No ZIP Location defined", "Please set up a location in the project settings")
         return
 
-    sync_dependencies = settings.get("sync_dependencies", True)
-    launch_project_display_name = settings.get("launch_project_display_name", uproject_files[0])       
+    sync_dependencies = settings.get(project_path+"_sync_dependencies", True)
+    launch_project_display_name = settings.get(project_path+"_launch_project_display_name", uproject_files[0])       
     
     launch_project_path = "" 
     for uproject_file in uproject_files:

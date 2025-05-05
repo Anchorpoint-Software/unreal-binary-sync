@@ -17,19 +17,21 @@ class UnrealProjectSettings(ap.AnchorpointSettings):
         uproject_display_names = [os.path.splitext(os.path.basename(uproject_file))[0] for uproject_file in uproject_files]
         uproject_display_names.append(no_project_label)
 
-        settings = aps.Settings()
-        last_binary_source = settings.get("last_binary_source", "")
-        sync_dependencies = settings.get("sync_dependencies", True)
-        launch_project_display_name = settings.get("launch_project_display_name", no_project_label) 
+        self.ctx = ctx        
+        project_path = ctx.project_path
 
-        self.ctx = ctx
+        settings = aps.Settings()
+        binary_source = settings.get(project_path+"_binary_source", "")
+        sync_dependencies = settings.get(project_path+"_sync_dependencies", True)
+        launch_project_display_name = settings.get(project_path+"_launch_project_display_name", no_project_label) 
+
         self.dialog = ap.Dialog()
 
         self.dialog.add_text("ZIP Location").add_input(
             placeholder="Select folder containing binaries...",
             browse=ap.BrowseType.Folder,
             var="binary_source",
-            default=last_binary_source,
+            default=binary_source,
             callback = self.store_local_settings
         )
         
@@ -82,17 +84,19 @@ class UnrealProjectSettings(ap.AnchorpointSettings):
         return uproject_files
 
     def store_local_settings(self,dialog,value):
+
+        ctx = ap.get_context()
+        project_path = ctx.project_path
+
         source_path = dialog.get_value("binary_source")
         sync_dependencies = dialog.get_value("sync_dependencies")
-        launch_project_display_name = dialog.get_value("launch_project_display_name")
-    
-        print(source_path)
+        launch_project_display_name = dialog.get_value("launch_project_display_name")    
         
         # Store the settings for next time
         settings = aps.Settings()
-        settings.set("binary_source", source_path)
-        settings.set("sync_dependencies", sync_dependencies)
-        settings.set("launch_project_display_name", launch_project_display_name)
+        settings.set(project_path+"_binary_source", source_path)
+        settings.set(project_path+"_sync_dependencies", sync_dependencies)
+        settings.set(project_path+"_launch_project_display_name", launch_project_display_name)
         settings.store()
         return
 
