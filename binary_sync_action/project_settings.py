@@ -47,7 +47,7 @@ class UnrealProjectSettings(ap.AnchorpointSettings):
             width = 246,
             callback = self.store_local_settings
         )
-        self.dialog.add_info("The folder containing all the ZIP files named with commit IDs")
+        self.dialog.add_info("The folder containing all the ZIP files named with commit IDs. Learn how to<br>properly <a href='https://docs.anchorpoint.app/docs/version-control/features/binary-sync/' >setup binary syncing</a>.")
         
         self.dialog.add_checkbox(
             text="Sync Setup Dependencies",
