@@ -47,6 +47,7 @@ class UnrealProjectSettings(ap.AnchorpointSettings):
             width = 246,
             callback = self.store_local_settings
         )
+        self.dialog.add_info("The folder containing all the ZIP files named with commit IDs")
         
         self.dialog.add_checkbox(
             text="Sync Setup Dependencies",
@@ -78,7 +79,7 @@ class UnrealProjectSettings(ap.AnchorpointSettings):
                 width = 344,
                 callback = self.store_shared_settings
             )
-            self.dialog.add_info("Specify a pattern for Git tags that tells Anchorpoint that there is a binary<br>attached to a commit") 
+            self.dialog.add_info("Specify a pattern for Git tags that tells Anchorpoint that there is a binary<br>attached to a commit. E.g. use <b>Editor</b> if your tag is named <b>Editor-1</b>.") 
 
 
     def get_dialog(self):
