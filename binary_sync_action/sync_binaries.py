@@ -350,7 +350,7 @@ def get_matching_commit_id(commit_history,tag_pattern):
         if dry_run:
             print("\nNo commits found in history")
         ui.show_error("No commits found", "Failed to retrieve commit history")
-        return None
+        return None, None
 
     # Process commits starting from current
     for commit_line in commit_history:
@@ -371,13 +371,13 @@ def get_matching_commit_id(commit_history,tag_pattern):
         if matching_tag:
             if dry_run:
                 print(f"Found matching tag: {matching_tag}")
-            return commit_id
+            return commit_id, matching_tag
     
     # If no matching tag was found
     if dry_run:
         print("\nNo matching binaries found in the search")
     ui.show_error("No compatible tag found", f"No tag found for commits with tag pattern '{tag_pattern}'")
-    return None
+    return None, None
 
 def launch_editor(project_path,launch_project_path):
     if not os.path.isabs(launch_project_path):
@@ -413,7 +413,7 @@ def run_sync_processes(sync_dependencies,source_path,launch_project_path,tag_pat
     if commit_history is None:
         return
         
-    matching_commit_id = get_matching_commit_id(commit_history,tag_pattern)
+    matching_commit_id, matching_tag = get_matching_commit_id(commit_history,tag_pattern)
     if matching_commit_id is None:
         return
         
@@ -426,7 +426,7 @@ def run_sync_processes(sync_dependencies,source_path,launch_project_path,tag_pat
             print(f"Found matching zip file: {zip_file_path}")
             print("\nWould perform the following actions:")
             print(f"1. {'Run setup script' if sync_dependencies else 'Skip setup script'}")
-            print(f"2. Extract binaries from {zip_file_name}")
+            print(f"2. Extract binaries from {matching_tag}")
             if launch_project_path:
                 print(f"3. Launch project: {launch_project_path}")
             progress.finish()
@@ -445,7 +445,7 @@ def run_sync_processes(sync_dependencies,source_path,launch_project_path,tag_pat
             if launch_project_path:
                 launch_editor(project_path,launch_project_path)
             else:
-                ui.show_success("Binaries synced", f"Files extracted from {zip_file_name}")
+                ui.show_success("Binaries synced", f"Files extracted from {matching_tag.replace(",","")}")
             return
             
         except Exception as e:
@@ -455,7 +455,7 @@ def run_sync_processes(sync_dependencies,source_path,launch_project_path,tag_pat
     elif dry_run:
         print(f"Zip file not found: {zip_file_path}")
     else:
-        ui.show_error("No compatible Zip file", f"No binaries found for commits with tag pattern '{tag_pattern}'")
+        ui.show_error("No compatible Zip file", f"No binaries found for tag '{matching_tag.replace(",","")}'")
     
 def initialize():
     global dry_run
