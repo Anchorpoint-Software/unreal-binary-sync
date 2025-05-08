@@ -22,8 +22,18 @@ def unzip_and_manage_files(zip_file_path, project_path, progress):
         print("3. Create/update extracted_binaries.txt")
         return True
 
-    # Delete existing files from previous sync if extracted_binaries.txt exists
+    # Check if we're already at the latest state
     binary_list_path = os.path.join(project_path, "extracted_binaries.txt")
+    if os.path.exists(binary_list_path):
+        with open(binary_list_path, 'r') as file:
+            first_line = file.readline().strip()
+            current_zip = os.path.basename(zip_file_path)
+            if first_line == f"Binary sync from {current_zip}":
+                ui.show_info("Binaries up to date", "Editor Binaries are already at the latest state")
+                progress.finish()
+                return True
+
+    # Delete existing files from previous sync if extracted_binaries.txt exists
     if os.path.exists(binary_list_path):
         with open(binary_list_path, 'r') as file:
             # Skip the header lines
