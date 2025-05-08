@@ -72,15 +72,6 @@ def unzip_and_manage_files(zip_file_path, project_path, progress):
     return True  # Indicate success
 
 def run_setup(project_path, progress):
-    if dry_run:
-        print(f"Would run setup in project path: {project_path}")
-        print("Would perform the following steps:")
-        print("1. Check for admin rights")
-        print("2. Run GitDependencies.exe")
-        print("3. Setup git hooks")
-        print("4. Install prerequisites")
-        print("5. Register engine installation")
-        return True
 
     import ctypes
     import sys
@@ -93,92 +84,80 @@ def run_setup(project_path, progress):
             return False
     
     # Finish the incoming progress object
-    progress.finish()
-    
-    # Create a new progress object for dependencies
-    setup_progress = ap.Progress("Setting up project", "Setting up project dependencies...", infinite=True)
-    setup_progress.set_cancelable(True)
-    
-    # Create a null device to redirect unwanted output for some processes
-    devnull = open(os.devnull, 'w')
+    progress.finish()    
     
     try:
+        # Create a single progress object for all steps
+        progress = ap.Progress("Setting up Project", "Checking dependencies...", infinite=True)
+        progress.set_cancelable(True)
+
         # Step 1: Run GitDependencies.exe
         git_dependencies_path = os.path.join(project_path, "Engine", "Binaries", "DotNET", "GitDependencies", "win-x64", "GitDependencies.exe")
-        if os.path.exists(git_dependencies_path):
-            # Create a new progress for dependencies syncing
-            setup_progress.finish()
-            dep_progress = ap.Progress("Setting up Project", "Checking dependencies...", infinite=True)
-            dep_progress.set_cancelable(True)
-            
-            # Prepare startupinfo to hide the window
-            startupinfo = None
-            if os.name == 'nt':
-                startupinfo = subprocess.STARTUPINFO()
-                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-            
-            # Run with --force parameter to avoid prompts
-            process = subprocess.Popen(
-                [
-                    git_dependencies_path, 
-                    "--force",
-                    "--exclude=osx64", "--exclude=osx32", "--exclude=TVOS", "--exclude=Mac", 
-                    "--exclude=mac-arm64", "--exclude=WinRT", "--exclude=Linux", "--exclude=Linux32", 
-                    "--exclude=Linux64", "--exclude=Unix", "--exclude=OpenVR", "--exclude=GoogleOboe", 
-                    "--exclude=GooglePlay", "--exclude=GoogleGameSDK", "--exclude=Documentation", 
-                    "--exclude=Samples", "--exclude=Templates", "--exclude=Android", "--exclude=HTML5", 
-                    "--exclude=IOS", "--exclude=GoogleVR", "--exclude=GoogleTest", "--exclude=LeapMotion",
-                    "--exclude=Dingo", "--exclude=Switch"
-                ],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                cwd=project_path,
-                startupinfo=startupinfo
-            )
-            
-            # Read and print output while checking for cancellation
-            while process.poll() is None:
-                # Check for cancellation
-                if dep_progress.canceled:
-                    process.terminate()
-                    ui.show_info("Setup cancelled by user")
-                    dep_progress.finish()
-                    return False
-                
-                # Read output
-                output_line = process.stdout.readline()
-                if output_line:
-                    
-                    # Parse progress percentage if present
-                    if "Updating dependencies:" in output_line:
-                        try:
-                            # Extract percentage from strings like "Updating dependencies: 3% (3476/90939)"
-                            percent_str = output_line.split("%")[0].split(": ")[1].strip()
-                            percent = float(percent_str) / 100.0  # Convert to 0-1 range
-                            dep_progress.set_text(output_line)
-                            dep_progress.report_progress(percent)
-                        except (IndexError, ValueError) as e:
-                            # If parsing fails, just continue
-                            pass
-            
-            # Get final return code
-            if process.returncode != 0:
-                ui.show_error("GitDependencies Error", "Failed to sync dependencies")
-                dep_progress.finish()
+        if not os.path.exists(git_dependencies_path):
+            ui.show_error("Setup Error", "GitDependencies.exe not found. This is required for setting up the project.")
+            progress.finish()
+            return False
+
+        # Prepare startupinfo to hide the window
+        startupinfo = None
+        if os.name == 'nt':
+            startupinfo = subprocess.STARTUPINFO()
+            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        
+        # Run with --force parameter to avoid prompts
+        process = subprocess.Popen(
+            [
+                git_dependencies_path, 
+                "--force",
+                "--exclude=osx64", "--exclude=osx32", "--exclude=TVOS", "--exclude=Mac", 
+                "--exclude=mac-arm64", "--exclude=WinRT", "--exclude=Linux", "--exclude=Linux32", 
+                "--exclude=Linux64", "--exclude=Unix", "--exclude=OpenVR", "--exclude=GoogleOboe", 
+                "--exclude=GooglePlay", "--exclude=GoogleGameSDK", "--exclude=Documentation", 
+                "--exclude=Samples", "--exclude=Templates", "--exclude=Android", "--exclude=HTML5", 
+                "--exclude=IOS", "--exclude=GoogleVR", "--exclude=GoogleTest", "--exclude=LeapMotion",
+                "--exclude=Dingo", "--exclude=Switch"
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            cwd=project_path,
+            startupinfo=startupinfo
+        )
+        
+        # Read and print output while checking for cancellation
+        while process.poll() is None:
+            # Check for cancellation
+            if progress.canceled:
+                process.terminate()
+                ui.show_info("Setup cancelled by user")
+                progress.finish()
                 return False
             
-            # Finish the dependencies progress
-            dep_progress.finish()
-            
-            # Create a new progress object for the rest of the steps
-            hooks_progress = ap.Progress("Finishing setup", "Registering git hooks...", infinite=True)
-            hooks_progress.set_cancelable(True)
-            
+            # Read output
+            output_line = process.stdout.readline()
+            if output_line:
+                # Parse progress percentage if present
+                if "Updating dependencies:" in output_line:
+                    try:
+                        # Extract percentage from strings like "Updating dependencies: 3% (3476/90939)"
+                        percent_str = output_line.split("%")[0].split(": ")[1].strip()
+                        percent = float(percent_str) / 100.0  # Convert to 0-1 range
+                        progress.set_text(output_line)
+                        progress.report_progress(percent)
+                    except (IndexError, ValueError) as e:
+                        # If parsing fails, just continue
+                        pass
+        
+        # Get final return code
+        if process.returncode != 0:
+            ui.show_error("GitDependencies Error", "Failed to sync dependencies")
+            progress.finish()
+            return False
+        
         # Step 2: Setup git hooks
         git_hooks_path = os.path.join(project_path, ".git", "hooks")
         if os.path.exists(git_hooks_path):
-            hooks_progress.set_text("Registering git hooks...")
+            progress.set_text("Registering git hooks...")
             
             # Create post-checkout hook
             with open(os.path.join(git_hooks_path, "post-checkout"), 'w') as f:
@@ -193,15 +172,15 @@ def run_setup(project_path, progress):
             print("Git hooks registered successfully")
             
         # Check for cancellation
-        if hooks_progress.canceled:
+        if progress.canceled:
             ui.show_info("Setup cancelled by user")
-            hooks_progress.finish()
+            progress.finish()
             return False
             
         # Step 3: Install prerequisites
         prereq_path = os.path.join(project_path, "Engine", "Extras", "Redist", "en-us", "UEPrereqSetup_x64.exe")
         if os.path.exists(prereq_path):
-            hooks_progress.set_text("Installing prerequisites. Make sure to accept the UAC prompt...")
+            progress.set_text("Installing prerequisites. Make sure to accept the UAC prompt...")
             
             # Prepare special startupinfo to suppress UAC dialog as much as possible
             uac_startupinfo = None
@@ -225,10 +204,10 @@ def run_setup(project_path, progress):
                 
                 # Wait for completion with cancellation support
                 while process.poll() is None:
-                    if hooks_progress.canceled:
+                    if progress.canceled:
                         process.terminate()
                         ui.show_info("Setup cancelled by user")
-                        hooks_progress.finish()
+                        progress.finish()
                         return False
                 
                 print("Prerequisites installed successfully")
@@ -239,15 +218,15 @@ def run_setup(project_path, progress):
                 # Continue anyway as this may not be critical
             
         # Check for cancellation
-        if hooks_progress.canceled:
+        if progress.canceled:
             ui.show_info("Setup cancelled by user")
-            hooks_progress.finish()
+            progress.finish()
             return False
             
         # Step 4: Register engine installation
         version_selector_path = os.path.join(project_path, "Engine", "Binaries", "Win64", "UnrealVersionSelector-Win64-Shipping.exe")
         if os.path.exists(version_selector_path):
-            hooks_progress.set_text("Registering engine installation...")
+            progress.set_text("Registering engine installation...")
             
             # Register the engine
             process = subprocess.Popen(
@@ -261,16 +240,16 @@ def run_setup(project_path, progress):
             
             # Wait for completion with cancellation support
             while process.poll() is None:
-                if hooks_progress.canceled:
+                if progress.canceled:
                     process.terminate()
                     ui.show_info("Setup cancelled by user")
-                    hooks_progress.finish()
+                    progress.finish()
                     return False
             
             print("Engine registered successfully")
             
-        hooks_progress.set_text("Setup completed successfully")
-        hooks_progress.finish()
+        progress.set_text("Setup completed successfully")
+        progress.finish()
         return True
         
     except Exception as e:
