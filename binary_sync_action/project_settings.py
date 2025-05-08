@@ -27,7 +27,7 @@ class UnrealProjectSettings(ap.AnchorpointSettings):
         # Get local and shared settings
         local_settings = aps.Settings()
         binary_source = local_settings.get(project_path+"_binary_source", "")
-        sync_dependencies = local_settings.get(project_path+"_sync_dependencies", True)
+        sync_dependencies = local_settings.get(project_path+"_sync_dependencies", False)
         launch_project_display_name = local_settings.get(project_path+"_launch_project_display_name", no_project_label) 
         dry_run = local_settings.get(project_path+"_dry_run", False)
         

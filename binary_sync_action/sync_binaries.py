@@ -466,7 +466,14 @@ def initialize():
 
     # Get the project settings
     local_settings = aps.Settings()  
-    sync_dependencies = local_settings.get(project_path+"_sync_dependencies", True)   
+    
+    # Check for .uedependencies file
+    uedependencies_path = os.path.join(project_path, ".uedependencies")
+    if os.path.exists(uedependencies_path):
+        sync_dependencies = local_settings.get(project_path+"_sync_dependencies", False)
+    else:
+        sync_dependencies = True
+        
     dry_run = local_settings.get(project_path+"_dry_run", False)    
     binary_source = local_settings.get(project_path+"_binary_source", "")
 
