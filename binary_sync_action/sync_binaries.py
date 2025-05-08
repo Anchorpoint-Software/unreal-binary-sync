@@ -4,7 +4,6 @@ import os
 import subprocess
 import zipfile
 import psutil
-import glob
 
 ctx = ap.get_context()
 ui = ap.UI()
@@ -83,16 +82,6 @@ def unzip_and_manage_files(zip_file_path, project_path, progress):
 
 def run_setup(project_path, progress):
 
-    import ctypes
-    import sys
-    
-    # Check if running with admin rights, if not, try to elevate
-    def is_admin():
-        try:
-            return ctypes.windll.shell32.IsUserAnAdmin()
-        except:
-            return False
-    
     # Finish the incoming progress object
     progress.finish()    
     
